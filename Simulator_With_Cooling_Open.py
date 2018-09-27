@@ -196,14 +196,13 @@ A4_shell = m.Intermediate( np.pi*D4*slice_length,name='A4_shell') #area of carbo
 #Important intermediate that describes the resistance of heat loss from battery to the shell
 thm_resist_00 = m.Intermediate(1/(h_internal*A1_shell),name='thm_resist_00') #convection resistance between battery and internal air
 thm_resist_0 = m.Intermediate(1/(h_internal*A2_shell),name='thm_resist_0') #convection resistance between internal air and insulation
-thm_resist_1 = m.Intermediate(m.log(D3/D2)/(2*np.pi*kf_insulation*length_batt/num_slices),name='thm_resist_1') #conductive resistance through air (assuming no free convection)
+#thm_resist_1 = m.Intermediate(m.log(D3/D2)/(2*np.pi*kf_insulation*length_batt/num_slices),name='thm_resist_1') #conductive resistance through air (assuming no free convection)
 thm_resist_2 = m.Intermediate(m.log(D3/D2)/(2*np.pi*kf_insulation*length_batt/num_slices),name='thm_resist_2') #conductive resistance through insulation
 thm_resist_3 = m.Intermediate(m.log(D4/D3)/(2*np.pi*kf_carbon*length_batt/num_slices),name='thm_resist_3') #conductive resistance through carbon fiber
 thm_resist_4 = m.Intermediate(1/(h_external*A4_shell),name='thm_resist_5') #convection resistance between carbon fiber and external air
 #thm_resist_5 = m.Intermediate(
 U_batt = m.Intermediate( 1/(thm_resist_00),name='U_batt')
 U_air = m.Intermediate( 1/(thm_resist_0+
-                           thm_resist_1+
                            thm_resist_2+
                            thm_resist_3+
                            thm_resist_4),name='U_air')
