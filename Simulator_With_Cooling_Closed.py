@@ -153,14 +153,13 @@ V_load = m.Param(value=motor_voltage,name='V_load') #Volts dropped by motor usea
 ############ CHANGE ME ###############
 # How many slices to break up the battery into (length-wise)
 discretize = 11 #Number of discretizations spatially
-thick_insulation = m.Const(value=.0207,name='thick_insulation') #m
-#.008037601 optimized thickness with constant internal battery resistance
-#.02389585 optimized thickness with variable internal battery resistance
+thick_insulation = m.Const(value=.015,name='thick_insulation') #m
+thick_air = m.Const(value=.02,name='thick_air') #m      #Thickness of an inside tube of air used for insulation and cooling (tube can be opened to the ambient air)
+#.0207 optimized thickness with variable internal battery resistance
 ######################################
 
 # More constants and assumptions about the model made into gekko objects 
-thick_air = m.Const(value=.02,name='thick_air') #m      #Thickness of an inside tube of air used for insulation and cooling (tube can be opened to the ambient air)
-thick_motor_insulation = m.Const(value=0,name='thick_motor_insulation') #m
+thick_motor_insulation = m.Const(value=0,name='thick_motor_insulation') #m ------OPTIONAL
 thick_carbon = m.Const(value=.0004*2,name='thick_carbon')        #m
 num_slices = m.Const(value=discretize,name='num_slices') #Inputting the number of slices into Gekko model
 kf_insulation = m.Const(value=.03,name='kf_insulation') #W/mK
