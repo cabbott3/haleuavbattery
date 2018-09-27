@@ -178,7 +178,8 @@ A1_shell = m.Intermediate( np.pi*D1*slice_length,name='A1_shell') #area of batte
 A2_shell = m.Intermediate( np.pi*D2*slice_length,name='A2_shell') #area of air shell
 A3_shell = m.Intermediate( np.pi*D3*slice_length,name='A3_shell') #area of insulation shell
 A4_shell = m.Intermediate( np.pi*D4*slice_length,name='A4_shell') #area of carbon fiber shell (very outside)
-#Important intermediate that describes the resistance of heat loss from battery to the shell
+#Important intermediate that describes the resistance of heat loss from battery to the shell (battery is assumed to be isothermal)
+
 U_slice = m.Intermediate( 1/(1/(h_internal*A1_shell)+1/(h_internal*A2_shell)+m.log(D3/D2)/(2*np.pi*kf_insulation*length_batt/num_slices)+m.log(D4/D3)/(2*np.pi*kf_carbon*length_batt/num_slices)+1/(h_external*A4_shell)))
 
 vol_annulus = m.Intermediate((A2_face-A1_face)*slice_length)

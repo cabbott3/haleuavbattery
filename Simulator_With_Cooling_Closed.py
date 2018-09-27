@@ -34,6 +34,19 @@ MAJOR ASSUMPTIONS IN MODEL
 - The battery temperature only changes axially, not radially
 - The density of the cooling air is constant axially throughout the annulus. And
     is calculated assuming the ambient air conditions (Will provide inflated cooling)
+- Battery and motor have the same heat capacity and thermal conductivity (probably not good, but simple --> check)
+    
+    Physical Dimensions are as follows:
+    - The battery is a cylinder with radius = .25 m and length = 1.5 m
+    - The thickness of the air annulus = 2 cm
+    - The thickness of the insulation = 2 cm
+    - The thickness of the carbon fiber = .8 mm
+    - The back of the battery pod is 100% insulated
+    - The motor is a cylinder with radius = .25 m and length = .5 m
+    
+- With closed cooling
+    - Air is isothermal (because of small mass) --> NO FREE CONVECTION (Will provide more inflated insulation)
+- 
 '''
 
 #import pip
@@ -127,7 +140,7 @@ length_batt = m.Intermediate(length_total - length_motor,name='length_batt') #m
 Pr = m.Intermediate(Cp_air*mu2/kf_air,name='Pr') #Prandlt number assumed to be the same for both internal and external air
 
 #Parameters necessary for the model made into gekko model objects
-rho_air - m.Param(value=rho,name='rho_air') #density of air (changes due to temperature and pressure variations during flight)
+rho_air = m.Param(value=rho,name='rho_air') #density of air (changes due to temperature and pressure variations during flight)
 motor_power = m.Param(value=motor,name='motor_power') #W (Not used)
 t_air2 = m.Param(value=t_air,name='t_air2') #K
 T_SP2 = m.Param(value=T_SP,name='T_SP2') #K
@@ -179,10 +192,20 @@ A2_shell = m.Intermediate( np.pi*D2*slice_length,name='A2_shell') #area of air s
 A3_shell = m.Intermediate( np.pi*D3*slice_length,name='A3_shell') #area of insulation shell
 A4_shell = m.Intermediate( np.pi*D4*slice_length,name='A4_shell') #area of carbon fiber shell (very outside)
 #Important intermediate that describes the resistance of heat loss from battery to the shell
-U_slice = m.Intermediate( 1/(1/(h_internal*A1_shell)+1/(h_internal*A2_shell)+m.log(D3/D2)/(2*np.pi*kf_insulation*length_batt/num_slices)+m.log(D4/D3)/(2*np.pi*kf_carbon*length_batt/num_slices)+1/(h_external*A4_shell)))
+#thm_resist_00 = m.Intermediate(1/(h_internal*A1_shell),name='thm_resist_00') #convection resistance between battery and internal air
+#thm_resist_0 = m.Intermediate(1/(h_internal*A2_shell),name='thm_resist_0') #convection resistance between internal air and insulation
+thm_resist_1 = m.Intermediate(m.log(D3/D2)/(2*np.pi*kf_insulation*length_batt/num_slices),name='thm_resist_1') #conductive resistance through air (assuming no free convection)
+thm_resist_2 = m.Intermediate(m.log(D3/D2)/(2*np.pi*kf_insulation*length_batt/num_slices),name='thm_resist_2') #conductive resistance through insulation
+thm_resist_3 = m.Intermediate(m.log(D4/D3)/(2*np.pi*kf_carbon*length_batt/num_slices),name='thm_resist_3') #conductive resistance through carbon fiber
+thm_resist_4 = m.Intermediate(1/(h_external*A4_shell),name='thm_resist_5') #convection resistance between carbon fiber and external air
+#thm_resist_5 = m.Intermediate(
+U_slice = m.Intermediate( 1/(thm_resist_1+\
+                             thm_resist_2+\
+                             thm_resist_3+\
+                             thm_resist_4))
 
-vol_annulus = m.Intermediate((A2_face-A1_face)*slice_length)
-mass_air_annulus = m.Intermediate( rho_air*vol_annulus)
+#vol_annulus = m.Intermediate((A2_face-A1_face)*slice_length)
+#mass_air_annulus = m.Intermediate( rho_air*vol_annulus)
 ############################# Equation Section ################################
 
 """
@@ -197,14 +220,11 @@ rapid evaluation of cell temperature temporal evolution." IEEE Transactions on I
 R_ref = m.Const(value=0.0126,name='R_ref')
 T_ref = m.Const(value=299.15,name='T_ref')
 beta = m.Const(value=2.836*10**3,name='beta')
-air_valve = m.Const(value=,lb=0,ub=1,name='air_valve') #IMPORTANT: This is the actuator that lets in air to cool the battery (CV -> simulation, MV -> controller)
 
 R_batt = m.SV(name='R_batt')
 Heater_Energy = m.SV(name='Heater_Energy') #calculating total heat over the time period devoted to heating the battery (assuming all heat from heaters goes to battery)
 T_motor = m.SV(value=273+10,name='T_motor') # Setting the motor temperature as a state variable (not to be controlled at optimal temperature)
 T = [m.SV(value=273+20,name='Tbatt_'+str(i)) for i in range(discretize)] #Create a battery temperature variable for (discretize) number of sections 
-Ta = [m.SV(value=273+20,name='Tair_'+str(i)) for i in range(discretize)] #Create an air temperature variable for (discretize) number of sections 
-Ta[0] = m.MV(lb=215,ub=300)
 #Q_heater = [m.MV(value=0,name='Q_'+str(i)) for i in range(discretize)] #Creating a heater variable for each slice
 Q_heater = m.Const(value=0,name='Q_heater')
 T_avg = m.SV(value=273+20,name='T_avg') #Average battery temperature (needed to use a 1 heater temperature management system) -- also good assumption
@@ -216,32 +236,26 @@ for j in range(discretize):
     if j == 0:
         # Motor (Section 0)
         m.Equation( (mass_batt/4*Cp_motor)*T_motor.dt() ==  motor_power*(1-eff_motor) #Heat generation (From Motor) 
-                                                                 -kf_batt*A2_inner*(T_motor-T[j])  #Conduction to next slice
-                                                                 -h*A1_inner*(T_motor-t_air2)) #Convection from motor 
-#                                                                 -U_motor*(T[j]-t_air2))       #Convection from slice through carbon 
-        if open_air = True:
-            Ta[j] = 215
+                                                                 -kf_batt*A1_face*(T_motor-T[j])  #Conduction to next slice
+                                                                 -h_external*motor_face*(T_motor-t_air2)) #Convection from motor  (it is exposed to air)
         
         # Calculating temperature for slice touching motor
-        m.Equation( (mass_batt*Cp_batt)/num_slices*T[j].dt() == kf_batt*A2_inner*(T_motor-T[j]) #Conduction from previous slice
+        m.Equation( (mass_batt*Cp_batt)/num_slices*T[j].dt() == kf_batt*A1_face*(T_motor-T[j]) #Conduction from previous slice
                                                             + I_load**2*R_batt/num_slices #Heat generation (Joule heating)
-                                                            -kf_batt*A2_inner*(T[j]-T[j+1]) #Conduction to next slice
+                                                            -kf_batt*A1_face*(T[j]-T[j+1]) #Conduction to next slice
                                                             -U_slice*(T[j]-t_air2) #Conduction through both insulation and carbon with convection on outside
-                                                            +Q_heater/num_slices) #Heat from external coil
-        
-        m.Equation( (mass_air_annulus*Cp_air)/num_slices*Ta[j].dt() == )                              
-
-                               
+                                                            +Q_heater/num_slices) #Heat from external coil 
+                             
     elif j > 0 and j < discretize-1:
         # Battery slice (Section 1 --> Section n-1)
-        m.Equation( (mass_batt*Cp_batt)/num_slices*T[j].dt() == kf_batt*A2_inner*(T[j-1]-T[j]) #Conduction from previous slice
+        m.Equation( (mass_batt*Cp_batt)/num_slices*T[j].dt() == kf_batt*A1_face*(T[j-1]-T[j]) #Conduction from previous slice
                                                                 + I_load**2*R_batt/num_slices #Heat generation (Joule heating)
-                                                                -kf_batt*A2_inner*(T[j]-T[j+1]) #Conduction to next slice
+                                                                -kf_batt*A1_face*(T[j]-T[j+1]) #Conduction to next slice
                                                                 -U_slice*(T[j]-t_air2) #Conduction through both insulation and carbon with convection on outside
                                                                 +Q_heater/num_slices) #Heat from external coil 
     else:
         # Battery (Last section)
-        m.Equation( (mass_batt*Cp_batt)/num_slices*T[j].dt() == kf_batt*A2_inner*(T[j-1]-T[j]) #Conduction from previous slice
+        m.Equation( (mass_batt*Cp_batt)/num_slices*T[j].dt() == kf_batt*A1_face*(T[j-1]-T[j]) #Conduction from previous slice
                                                                 + I_load**2*R_batt/num_slices #Heat generation (Joule heating)
                                                                 -U_slice*(T[j]-t_air2) #Conduction through both insulation and carbon with convection on outside
                                                                 +Q_heater/num_slices) #Heat from external coil
@@ -267,9 +281,9 @@ plt.ylabel('Temperature (C)')
 plt.xlabel('Time (hr)')
 plt.plot(solData.time/3600,solData['t_motor']-273.15,label='T_motor')
 for i in range(discretize):
-    plt.plot(solData.time/3600, solData['t_'+str(i)]-273.15,label='T_'+str(i))
+    plt.plot(solData.time/3600, solData['tbatt_'+str(i)]-273.15,label='Tbatt_'+str(i))
 if discretize < 20:
-    plt.legend(["T_"+str(q) for q in range(discretize)])
+    plt.legend(["Tbatt_"+str(q) for q in range(discretize)])
         
     #Save results
     #m.CSV_WRITE = 1
