@@ -198,10 +198,10 @@ thm_resist_2 = m.Intermediate(m.log(D3/D2)/(2*np.pi*kf_insulation*length_batt/nu
 thm_resist_3 = m.Intermediate(m.log(D4/D3)/(2*np.pi*kf_carbon*length_batt/num_slices),name='thm_resist_3') #conductive resistance through carbon fiber
 thm_resist_4 = m.Intermediate(1/(h_external*A4_shell),name='thm_resist_5') #convection resistance between carbon fiber and external air
 #thm_resist_5 = m.Intermediate(
-U_slice = m.Intermediate( 1/(thm_resist_1+\
-                             thm_resist_2+\
-                             thm_resist_3+\
-                             thm_resist_4))
+U_slice = m.Intermediate( 1/(thm_resist_1+
+                             thm_resist_2+
+                             thm_resist_3+
+                             thm_resist_4),name='U_slice')
 
 #vol_annulus = m.Intermediate((A2_face-A1_face)*slice_length)
 #mass_air_annulus = m.Intermediate( rho_air*vol_annulus)
